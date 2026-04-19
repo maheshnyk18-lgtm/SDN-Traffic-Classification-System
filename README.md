@@ -1,104 +1,118 @@
-# Traffic Classification System using SDN (Mininet + Ryu)
+# SDN Traffic Classification & Control using Ryu
 
-## Course: Computer Networks Lab
+## Overview
+This project demonstrates Software Defined Networking (SDN) using Mininet and the Ryu Controller.
 
----
-
-## 📌 Problem Statement
-
-Design and implement an SDN-based Traffic Classification System using Mininet and Ryu Controller. The system should allow ICMP (ping) traffic while blocking HTTP traffic (port 80).
-
----
-
-## 🎯 Objectives
-
-* Understand SDN architecture
-* Implement traffic classification using OpenFlow
-* Demonstrate allowed vs blocked traffic
+We simulate a simple network and implement traffic control rules to:
+- Allow normal communication (ICMP ping)
+- Block HTTP traffic (port 80)
 
 ---
 
-## 🧠 System Architecture
+## Network Topology
+- 1 Switch → s1
+- 2 Hosts → h1, h2
+- Remote SDN Controller → Ryu
 
-* 2 Hosts (h1, h2)
-* 1 Switch (s1)
-* 1 Ryu Controller
+---
 
+## Technologies Used
+- Mininet
+- Ryu Controller
+- Open vSwitch (OVS)
+- Python
+
+---
+
+## How to Run
+
+### 1. Start Ryu Controller
+ryu-manager traffic_controller.py
+
+### 2. Start Mininet
+sudo mn --topo single,2 --controller remote --switch ovsk
+
+### 3. Test Connectivity (Allowed Traffic)
+mininet> h1 ping h2
+
+Expected: Successful ping (0% packet loss)
+
+### 4. Test Blocked Traffic (HTTP)
+mininet> h1 curl http://10.0.0.2
+
+Expected: Connection timeout (HTTP blocked)
+
+### 5. View Flow Rules
+sudo ovs-ofctl dump-flows s1
+
+---
+
+## Screenshots
+
+### Mininet Topology
 ![Topology](screenshots/topology.jpeg)
 
----
+### Ping (Allowed Traffic)
+![Ping](screenshots/ping.jpeg)
 
-## 🛠 Tools Used
+### HTTP Blocked
+![HTTP Block](screenshots/http_block.jpeg)
 
-* Mininet
-* Ryu Controller
-* OpenFlow 1.3
-* Python
-
----
-
-## ⚙️ Execution Steps
-
-### Run Controller
-
-```
-ryu-manager traffic_controller.py
-```
-
-### Run Mininet
-
-```
-sudo mn --topo single,2 --controller remote --switch ovsk,protocols=OpenFlow13
-```
-
-![Controller Logs](screenshots/controller.jpeg)
-
----
-
-## 🧪 Test Cases
-
-### ✅ Ping Test
-
-```
-h1 ping h2
-```
-
-**Expected:** Success
-
-![Ping Output](screenshots/ping.jpeg)
-
----
-
-### ❌ HTTP Test
-
-```
-h2 python3 -m http.server 80
-h1 curl http://10.0.0.2
-```
-
-**Expected:** Blocked
-
-![HTTP Blocked](screenshots/http_block.jpeg)
-
----
-
-## 📊 Results
-
-* Ping works successfully
-* HTTP traffic is blocked
-* Flow rules installed correctly
-
+### Flow Table
 ![Flow Table](screenshots/flow_table.jpeg)
 
----
-
-## 🏁 Conclusion
-
-This project demonstrates SDN-based traffic control using Ryu and Mininet. HTTP traffic is blocked using OpenFlow match-action rules, while ICMP traffic is allowed, proving effective traffic classification using SDN.
+### Controller Logs
+![Controller](screenshots/controller.jpeg)
 
 ---
 
-## 📚 References
+## Key Concept
 
-* Ryu Documentation
-* Mininet Documentation
+SDN separates:
+- Control Plane (Ryu Controller)
+- Data Plane (Switches)
+
+The controller dynamically installs rules:
+- Allows ICMP traffic
+- Blocks HTTP traffic
+
+---
+
+## Demo Proof
+Video Demonstration includes:
+- Running Mininet
+- Running Ryu Controller
+- Successful Ping (Allowed Traffic)
+- Failed HTTP Request (Blocked Traffic)
+
+Add your video link here:
+<PASTE_YOUR_LINK>
+
+---
+
+## Project Structure
+
+.
+├── README.md
+├── traffic_controller.py
+└── screenshots/
+    ├── topology.jpeg
+    ├── ping.jpeg
+    ├── http_block.jpeg
+    ├── flow_table.jpeg
+    └── controller.jpeg
+
+---
+
+## Notes
+- Controller must be started before Mininet
+- Uses remote controller mode
+- Works on Ubuntu (VM / Native)
+
+---
+
+
+## Status
+- Working
+- Screenshots Included
+- Demo Ready
