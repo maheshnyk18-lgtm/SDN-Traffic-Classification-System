@@ -1,66 +1,45 @@
-from ryu.base import app_manager
-from ryu.controller import ofp_event
-from ryu.controller.handler import MAIN_DISPATCHER, CONFIG_DISPATCHER, set_ev_cls
-from ryu.ofproto import ofproto_v1_3
-from ryu.lib.packet import packet, ethernet, ipv4, tcp
+from pox.core import core
+import pox.openflow.libopenflow_01 as of
+from pox.lib.packet import ethernet, ipv4, tcp
 
-class TrafficControl(app_manager.RyuApp):
-    OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
+log = core.getLogger()
 
-    def add_flow(self, datapath, priority, match, actions):
-        ofproto = datapath.ofproto
-        parser = datapath.ofproto_parser
+class TrafficControl(object):
+    def __init__(self, connection):
+        self.connection = connection
+        connection.addListeners(self)
 
-        inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS, actions)]
-        mod = parser.OFPFlowMod(
-            datapath=datapath,
-            priority=priority,
-            match=match,
-            instructions=inst
-        )
-        datapath.send_msg(mod)
+    def _handle_PacketIn(self, event):
+        packet = event.parsed
 
-    @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
-    def switch_features_handler(self, ev):
-        datapath = ev.msg.datapath
-        parser = datapath.ofproto_parser
-        ofproto = datapath.ofproto
-
-        # Default rule: send unknown packets to controller
-        match = parser.OFPMatch()
-        actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER)]
-        self.add_flow(datapath, 0, match, actions)
-
-    @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
-    def packet_in_handler(self, ev):
-        msg = ev.msg
-        datapath = msg.datapath
-        parser = datapath.ofproto_parser
-        ofproto = datapath.ofproto
-
-        pkt = packet.Packet(msg.data)
-        eth = pkt.get_protocol(ethernet.ethernet)
-        ip = pkt.get_protocol(ipv4.ipv4)
-        tcp_pkt = pkt.get_protocol(tcp.tcp)
+        ip_packet = packet.find('ipv4')
+        tcp_packet = packet.find('tcp')
 
         # Block HTTP traffic (port 80)
-        if ip and tcp_pkt:
-            if tcp_pkt.dst_port == 80:
-                print("Blocking HTTP traffic")
-                return  # Drop packet
+        if ip_packet and tcp_packet:
+            if tcp_packet.dstport == 80:
+                log.info("Blocking HTTP traffic")
 
-        # Otherwise forward
-        actions = [parser.OFPActionOutput(ofproto.OFPP_FLOOD)]
+                msg = of.ofp_flow_mod()
+                msg.match = of.ofp_match.from_packet(packet)
+                msg.priority = 100
+                # No actions = DROP
 
-        data = None
-        if msg.buffer_id == ofproto.OFP_NO_BUFFER:
-            data = msg.data
+                self.connection.send(msg)
+                return
 
-        out = parser.OFPPacketOut(
-            datapath=datapath,
-            buffer_id=msg.buffer_id,
-            in_port=msg.match['in_port'],
-            actions=actions,
-            data=data
-        )
-        datapath.send_msg(out)
+        # Allow other traffic
+        msg = of.ofp_packet_out()
+        msg.data = event.ofp
+        msg.actions.append(of.ofp_action_output(port=of.OFPP_FLOOD))
+        msg.in_port = event.port
+
+        self.connection.send(msg)
+
+def launch():
+    def start_switch(event):
+        log.info("New switch connected")
+        TrafficControl(event.connection)
+
+    core.openflow.addListenerByName("ConnectionUp", start_switch)
+    log.info("POX Traffic Controller Started")
